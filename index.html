@@ -135,7 +135,8 @@ window.firebaseSignIn = () => signInWithRedirect(auth, provider);
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    console.log("Login successful:", user.displayName);
+document.getElementById("pname").value = user.displayName || "";
+document.getElementById("msg").textContent = "Google Login Successful!";
   }
 });
 </script>
