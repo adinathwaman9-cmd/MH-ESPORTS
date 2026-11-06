@@ -103,5 +103,38 @@ try{
 draw(); renderJoined(); showView('home');
 })();
 </script>
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithRedirect,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDml9fV_DrpfFyfFNZwlZV-ftgSWUjmVs0",
+  authDomain: "mh-esports-by-aadi.firebaseapp.com",
+  projectId: "mh-esports-by-aadi",
+  storageBucket: "mh-esports-by-aadi.firebasestorage.app",
+  messagingSenderId: "792584752278",
+  appId: "1:792584752278:web:72494fef3f1e96538906b7",
+  measurementId: "G-036G14G1K1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+window.firebaseAuth = auth;
+window.googleProvider = provider;
+window.firebaseSignIn = () => signInWithRedirect(auth, provider);
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log("Login successful:", user.displayName);
+  }
+});
+</script>
 </body>
 </html>
