@@ -23,7 +23,28 @@ function joinMatch(name){if(joined.includes(name)){alert('You have already joine
 function renderJoined(){document.getElementById('joined').innerHTML=joined.length?joined.map(x=>`<div class="match">✅ ${x}<div class="tag">DEMO REGISTRATION</div></div>`).join(''):'<div class="card">No matches joined yet. Choose a tournament in Play.</div>'}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===id||(id==='myMatches'&&b.dataset.view==='play')));window.scrollTo(0,0)}
 document.querySelectorAll('nav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
-function saveProfile(){let n=document.getElementById('pname').value.trim(),u=document.getElementById('uid').value.trim();if(!n||!u){alert('Please enter player name and Free Fire UID');return}localStorage.setItem('mh_name',n);localStorage.setItem('mh_uid',u);document.getElementById('msg').textContent='Profile saved on this device.'}
-let savedName=localStorage.getItem('mh_name'),savedUid=localStorage.getItem('mh_uid');if(savedName)document.getElementById('pname').value=savedName;if(savedUid)document.getElementById('uid').value=savedUid;
+function saveProfile(){
+  const nameInput=document.getElementById('pname');
+  const uidInput=document.getElementById('uid');
+  const message=document.getElementById('msg');
+  const n=nameInput ? nameInput.value.trim() : '';
+  const u=uidInput ? uidInput.value.trim() : '';
+  if(!n || !u){ if(message) message.textContent='Please enter both Player name and Free Fire UID.'; return; }
+  try {
+    localStorage.setItem('mh_name',n);
+    localStorage.setItem('mh_uid',u);
+    if(message){ message.textContent='✓ Profile saved successfully on this device.'; message.style.color='#16a34a'; }
+    const accountName=document.getElementById('accountName');
+    if(accountName) accountName.textContent=n;
+  } catch(error) {
+    if(message){ message.textContent='Could not save on this browser. Please allow site storage and try again.'; message.style.color='#dc2626'; }
+  }
+}
+try {
+  const savedName=localStorage.getItem('mh_name');
+  const savedUid=localStorage.getItem('mh_uid');
+  if(savedName && document.getElementById('pname')) document.getElementById('pname').value=savedName;
+  if(savedUid && document.getElementById('uid')) document.getElementById('uid').value=savedUid;
+} catch(error) { console.warn('Profile storage is unavailable',error); }
 gameCards('homeGames');gameCards('playGames');renderFilters();renderMatches();renderJoined();
 </script></body></html>
