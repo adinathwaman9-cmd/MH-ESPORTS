@@ -215,10 +215,13 @@ async function loadAdminRegistrations(){
   status.textContent='Registrations loading...';box.innerHTML='';
   try{
     const rows=[];
-    // Current app format: registrations array stored inside users/{uid}.
+    const playerRows=[];
+    // Load every saved player profile, even if they have not joined a tournament.
     const usersSnap=await mhDb.collection('users').get();
     usersSnap.forEach(doc=>{
       const data=doc.data()||{};
+      playerRows.push({uid:doc.id,email:data.email||'',gameName:data.gameName||data.inGameName||data.playerName||'',freeFireUid:data.freeFireUid||''});
+      // Current app format: registrations array stored inside users/{uid}.
       (Array.isArray(data.registrations)?data.registrations:[]).forEach((r,index)=>{
         if(r && typeof r==='object') rows.push({kind:'userArray',userDocId:doc.id,index,record:r,email:r.email||data.email||'',gameName:r.gameName||r.inGameName||r.playerName||data.gameName||data.inGameName||data.playerName||'',freeFireUid:r.freeFireUid||data.freeFireUid||'',tournamentName:r.tournamentName||'Tournament',status:r.status||'registered',registeredAt:r.registeredAt||''});
       });
@@ -228,9 +231,10 @@ async function loadAdminRegistrations(){
       const regSnap=await mhDb.collection('registrations').get();
       regSnap.forEach(doc=>{const r=doc.data()||{};rows.push({kind:'collection',docId:doc.id,userDocId:r.userUid||'',record:r,email:r.email||'',gameName:r.gameName||r.inGameName||r.playerName||'',freeFireUid:r.freeFireUid||'',tournamentName:r.tournamentName||'Tournament',status:r.status||'pending',registeredAt:r.registeredAt||''});});
     }catch(collectionError){console.warn('Top-level registrations collection not readable:',collectionError);}
-    status.textContent='Total registrations: '+rows.length;
-    if(!rows.length){box.innerHTML='<div class="card">No registrations found yet.</div>';return;}
-    box.innerHTML=rows.map((r,i)=>{
+    status.textContent='Total players: '+playerRows.length+' | Total registrations: '+rows.length;
+    const playersHtml='<h3 class="sectionTitle">👥 All Player Profiles</h3>'+(playerRows.length?playerRows.map(p=>`<div class="card"><b>${mhEscape(p.gameName||'Game Name not set')}</b><p class="note">FF UID: ${mhEscape(p.freeFireUid||'Not provided')}<br>Gmail: ${mhEscape(p.email)}<br>Player ID: ${mhEscape(p.uid)}</p></div>`).join(''):'<div class="card">No player profiles found yet.</div>')+'<h3 class="sectionTitle">🏆 Tournament Registrations</h3>';
+    if(!rows.length){box.innerHTML=playersHtml+'<div class="card">No tournament registrations found yet.</div>';return;}
+    box.innerHTML=playersHtml+rows.map((r,i)=>{
       const date=r.registeredAt ? (typeof r.registeredAt==='string'?r.registeredAt:(r.registeredAt.toDate?r.registeredAt.toDate().toLocaleString():'')) : '';
       const action=r.status==='approved'?'Approved':(r.status==='rejected'?'Rejected':'Pending');
       return `<div class="match"><div class="tag">${mhEscape(action.toUpperCase())}</div><h3>${mhEscape(r.tournamentName)}</h3><div class="matchMeta"><span>Player: ${mhEscape(r.gameName)}</span><span>FF UID: ${mhEscape(r.freeFireUid || 'Not provided')}</span></div><p class="note">Gmail: ${mhEscape(r.email)}<br>Registered: ${mhEscape(date)}<br>Record: ${r.kind==='collection'?'registrations collection':'users profile'}</p><div style="display:flex;gap:8px"><button class="join" style="margin-top:0" data-admin-action="approved" data-admin-index="${i}">✓ APPROVE</button><button class="join" style="margin-top:0;background:#b42336" data-admin-action="rejected" data-admin-index="${i}">✕ REJECT</button></div></div>`;
