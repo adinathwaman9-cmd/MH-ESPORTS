@@ -138,7 +138,7 @@ function mhParse12h(value){const v=String(value||'').trim().toUpperCase();const 
 function renderMatches(){
   let list=tournaments.filter(t=>selected==='All'||t[0]===selected||t[2]===selected);const now=Date.now();
   list.sort((a,b)=>{const ta=a[5]&&a[5].matchAt?new Date(a[5].matchAt).getTime():a[5]&&a[5].date&&a[5].time?new Date(a[5].date+'T'+a[5].time).getTime():Infinity;const tb=b[5]&&b[5].matchAt?new Date(b[5].matchAt).getTime():b[5]&&b[5].date&&b[5].time?new Date(b[5].date+'T'+b[5].time).getTime():Infinity;const aa=ta>=now,bb=tb>=now;if(aa!==bb)return aa?-1:1;return aa?ta-tb:tb-ta;});
-  document.getElementById('tournaments').innerHTML=list.map((t,i)=>{const d=t[5]||{};const poster=posterImages[i%posterImages.length]||'';const admin=mhIsAdmin()&&d.docId?`<div class="adminTournamentActions"><button class="join" type="button" onclick="editTournament('${d.docId}')">EDIT</button> <button class="join" type="button" onclick="deleteTournament('${d.docId}')">DELETE</button></div>`:'';const isJoined=joined.some(r=>r&&(typeof r==='string'?r===t[1]:r.tournamentName===t[1]));const capacity=(mhModeTeams(t[0],t)||[]).length||Number(d.slots||t[4]||0);return `<div class="match" data-tournament-id="${mhEscape(d.docId||'')}" style="${poster?`background-image:linear-gradient(rgba(8,17,39,.82),rgba(8,17,39,.90)),url('${poster}')`:``}"><span class="tag">● ${d.date?'UPCOMING TOURNAMENT':'TOURNAMENT'} • ${mhEscape(t[0])}</span><h3>🏆 ${mhEscape(t[1])}</h3><div class="matchMeta"><span>👥 Total Slots: ${capacity||mhEscape(t[3])}</span><span>✅ Joined Players: <b class="mh-joined-count">—</b></span><span>🟢 Available Slots: <b class="mh-available-count">—</b></span><span>Entry: ${d.entryFee!==undefined?'₹'+d.entryFee:'Free'}</span><span>Prize: ${d.prize?mhEscape(d.prize):'Details soon'}</span>${d.date?`<span>📅 ${mhEscape(d.date)}</span><span>🕒 ${mhEscape(mhFormat12h(d.time||''))}</span><span>🗺️ ${mhEscape(d.map||'')}</span>`:''}</div><button class="join" ${isJoined?'disabled':''} onclick="joinMatch('${String(t[1]).replace(/'/g,"\\'")}')">${isJoined?'JOINED ✅':'JOIN TOURNAMENT'}</button>${admin}</div>`;}).join('')||'<div class="card">No tournaments in this category yet.</div>';
+  document.getElementById('tournaments').innerHTML=list.map((t,i)=>{const d=t[5]||{};const poster=posterImages[i%posterImages.length]||'';const admin=mhIsAdmin()&&d.docId?`<div class="adminTournamentActions"><button class="join" type="button" onclick="editTournament('${d.docId}')">EDIT</button> <button class="join" type="button" onclick="deleteTournament('${d.docId}')">DELETE</button></div>`:'';const tournamentId=d.docId||'';const isJoined=joined.some(r=>r&&(typeof r==='string'?(!tournamentId&&r===t[1]):(r.tournamentId&&tournamentId?r.tournamentId===tournamentId:(!r.tournamentId&&r.tournamentName===t[1]))));const capacity=(mhModeTeams(t[0],t)||[]).length||Number(d.slots||t[4]||0);return `<div class="match" data-tournament-id="${mhEscape(d.docId||'')}" style="${poster?`background-image:linear-gradient(rgba(8,17,39,.82),rgba(8,17,39,.90)),url('${poster}')`:``}"><span class="tag">● ${d.date?'UPCOMING TOURNAMENT':'TOURNAMENT'} • ${mhEscape(t[0])}</span><h3>🏆 ${mhEscape(t[1])}</h3><div class="matchMeta"><span>👥 Total Slots: ${capacity||mhEscape(t[3])}</span><span>✅ Joined Players: <b class="mh-joined-count">—</b></span><span>🟢 Available Slots: <b class="mh-available-count">—</b></span><span>Entry: ${d.entryFee!==undefined?'₹'+d.entryFee:'Free'}</span><span>Prize: ${d.prize?mhEscape(d.prize):'Details soon'}</span>${d.date?`<span>📅 ${mhEscape(d.date)}</span><span>🕒 ${mhEscape(mhFormat12h(d.time||''))}</span><span>🗺️ ${mhEscape(d.map||'')}</span>`:''}</div><button class="join" ${isJoined?'disabled':''} onclick="joinMatch('${String(t[1]).replace(/'/g,"\\'")}')">${isJoined?'JOINED ✅':'JOIN TOURNAMENT'}</button>${admin}</div>`;}).join('')||'<div class="card">No tournaments in this category yet.</div>';
   refreshTournamentSlotStats(list);
 }
 async function refreshTournamentSlotStats(list){
@@ -163,9 +163,9 @@ async function joinMatch(name){
     const profile=userSnap.data()||{};
     if(!profile.gameName){alert('Please enter your Free Fire In-Game Name in your profile and save it first.');return;}
     const registrations=Array.isArray(profile.registrations)?profile.registrations:[];
-    if(registrations.some(r=>r&&r.tournamentName===name)){alert('तुम्ही या Tournament मध्ये आधीच Join केले आहे.');return;}
+    if(registrations.some(r=>r&&((r.tournamentId&&r.tournamentId===tournament[5].docId)||(!r.tournamentId&&r.tournamentName===name)))){alert('तुम्ही या Tournament मध्ये आधीच Join केले आहे.');return;}
     if(!slots){
-      const registration={tournamentName:name,userUid:user.uid,email:user.email||'',gameName:profile.gameName,freeFireUid:profile.freeFireUid||'',registeredAt:new Date().toISOString(),status:'registered'};
+      const registration={tournamentId:tournament[5].docId,tournamentName:name,userUid:user.uid,email:user.email||'',gameName:profile.gameName,freeFireUid:profile.freeFireUid||'',registeredAt:new Date().toISOString(),status:'registered'};
       await mhDb.collection('users').doc(user.uid).set({registrations:firebase.firestore.FieldValue.arrayUnion(registration)},{merge:true});
       joined=registrations.concat([registration]);const count=document.getElementById('playedCount');if(count)count.textContent=joined.length;renderJoined();renderMatches();showJoinToast();return;
     }
@@ -193,14 +193,14 @@ async function confirmTournamentPosition(){
   const {name,user,profile,tournament,selected}=pending;
   const userRef=mhDb.collection('users').doc(user.uid);
   const posRef=mhDb.collection('tournaments').doc(tournament[5].docId).collection('positions').doc(selected);
-  const registration={tournamentName:name,userUid:user.uid,email:user.email||'',gameName:profile.gameName,freeFireUid:profile.freeFireUid||'',position:selected,registeredAt:new Date().toISOString(),status:'registered'};
+  const registration={tournamentId:tournament[5].docId,tournamentName:name,userUid:user.uid,email:user.email||'',gameName:profile.gameName,freeFireUid:profile.freeFireUid||'',position:selected,registeredAt:new Date().toISOString(),status:'registered'};
   try{
     await mhDb.runTransaction(async tx=>{
       const [positionSnap,userSnap]=await Promise.all([tx.get(posRef),tx.get(userRef)]);
       if(positionSnap.exists)throw new Error('POSITION_TAKEN');
       const latest=userSnap.exists?(userSnap.data()||{}):{};
       const regs=Array.isArray(latest.registrations)?latest.registrations:[];
-      if(regs.some(r=>r&&r.tournamentName===name))throw new Error('ALREADY_JOINED');
+      if(regs.some(r=>r&&((r.tournamentId&&r.tournamentId===tournament[5].docId)||(!r.tournamentId&&r.tournamentName===name))))throw new Error('ALREADY_JOINED');
       tx.set(posRef,{position:selected,userUid:user.uid,gameName:profile.gameName,email:user.email||'',registeredAt:firebase.firestore.FieldValue.serverTimestamp()});
       tx.set(userRef,{registrations:firebase.firestore.FieldValue.arrayUnion(registration)},{merge:true});
     });
@@ -263,7 +263,7 @@ async function loadAdminTournaments(){
   if(!mhDb) return;
   try{
     const snap=await mhDb.collection('tournaments').get();
-    snap.forEach(doc=>{const d=doc.data()||{};d.docId=doc.id;if(!d.name)return; if(!tournaments.some(t=>t[1]===d.name)){tournaments.push([d.category||d.mode,d.name,d.mode,d.slots+' Players',String(d.slots),d]);}});
+    snap.forEach(doc=>{const d=doc.data()||{};d.docId=doc.id;if(!d.name)return;const existing=tournaments.find(t=>t[1]===d.name);if(existing){existing[0]=d.category||d.mode||existing[0];existing[2]=d.mode||existing[2];existing[3]=(d.slots||existing[4])+' Players';existing[4]=String(d.slots||existing[4]);existing[5]=d;}else{tournaments.push([d.category||d.mode,d.name,d.mode,d.slots+' Players',String(d.slots),d]);}});
     renderMatches(); renderRoomAdminTools();
   }catch(e){console.warn('Tournament list load:',e);}
 }
@@ -298,7 +298,44 @@ async function createTournament(){
 function renderRoomAdminTools(){
   const box=document.getElementById('adminRoomTools'); if(!box) return;
   if(!mhIsAdmin()){box.innerHTML='<div class="card">Admin login is required.</div>';return;}
-  box.innerHTML=tournaments.map(t=>{const name=t[1];const id='roomform-'+mhRoomKey(name);return `<div class="card" style="margin:12px 0"><b>${mhEscape(name)}</b><input type="date" id="${id}-date" aria-label="Match date"><input type="text" id="${id}-time" inputmode="text" placeholder="Time (e.g. 07:30 PM) — 12-hour format" aria-label="Match time in 12-hour format"><input type="text" id="${id}-id" placeholder="Free Fire Room ID"><input type="text" id="${id}-pass" placeholder="Room Password"><button class="join" type="button" onclick="saveRoomDetails('${mhEscape(name).replace(/'/g,"\'")}','${id}')">SAVE ROOM DETAILS</button><p class="note" id="${id}-status">Room details are private. Only registered players can receive them 1 minute before match time.</p></div>`;}).join('');
+  if(!tournaments.length){box.innerHTML='<div class="card">अजून Tournament तयार केलेले नाहीत.</div>';return;}
+  const options=tournaments.map((t,i)=>{
+    const data=t[5]||{};
+    const label=[t[1],t[2]||'',data.date||''].filter(Boolean).join(' — ');
+    return `<option value="${i}">${mhEscape(label)}</option>`;
+  }).join('');
+  box.innerHTML=`<div class="card" style="margin:12px 0">
+    <b>🎯 कोणत्या Tournament साठी Room Details द्यायचे?</b>
+    <p class="note">आधी Tournament निवडा. खाली निवडलेल्या Tournament चे नाव दिसेल.</p>
+    <select id="mhRoomTournamentSelect" onchange="mhSelectRoomTournament()">${options}</select>
+    <h3 id="mhRoomSelectedTitle" style="margin:12px 0">${mhEscape([tournaments[0][1],tournaments[0][2]||''].filter(Boolean).join(' — '))}</h3>
+    <input type="date" id="mh-room-date" aria-label="Match date">
+    <input type="text" id="mh-room-time" inputmode="text" placeholder="Time (e.g. 07:30 PM) — 12-hour format" aria-label="Match time in 12-hour format">
+    <input type="text" id="mh-room-id" placeholder="Free Fire Room ID">
+    <input type="text" id="mh-room-pass" placeholder="Room Password">
+    <button class="join" type="button" onclick="mhSaveSelectedRoomDetails()">SAVE ROOM DETAILS FOR SELECTED TOURNAMENT</button>
+    <p class="note" id="mh-room-status">Room details are private. Registered players will receive them from 1 minute before match time.</p>
+  </div>`;
+  mhSelectRoomTournament();
+}
+function mhSelectRoomTournament(){
+  const select=document.getElementById('mhRoomTournamentSelect'); if(!select) return;
+  const t=tournaments[Number(select.value)]; if(!t) return;
+  const data=t[5]||{};
+  const title=document.getElementById('mhRoomSelectedTitle');
+  if(title) title.textContent=[t[1],t[2]||'',data.date||''].filter(Boolean).join(' — ');
+  const date=document.getElementById('mh-room-date');
+  if(date && data.date) date.value=data.date;
+  const time=document.getElementById('mh-room-time');
+  if(time && data.time) time.value=data.time;
+  const status=document.getElementById('mh-room-status');
+  if(status) status.textContent='निवडलेला Tournament: '+[t[1],t[2]||'',data.date||''].filter(Boolean).join(' — ')+'. खाली याच Tournament चे Room ID आणि Password भरा.';
+}
+async function mhSaveSelectedRoomDetails(){
+  const select=document.getElementById('mhRoomTournamentSelect');
+  const t=select&&tournaments[Number(select.value)];
+  if(!t){alert('कृपया Tournament निवडा.');return;}
+  await saveRoomDetails(t[1],'mh-room');
 }
 async function saveRoomDetails(name,id){
   if(!mhIsAdmin()){alert('Admin access denied.');return;}
