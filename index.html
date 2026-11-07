@@ -44,10 +44,13 @@ try {
     if (user) {
       setAuthMessage('Login successful! Welcome, ' + (user.displayName || user.email || 'Google user'));
       saveUserToFirestore(user);
+      loadJoinedMatches(user);
       if (login) login.style.display = 'none';
       if (logout) logout.style.display = 'block';
     } else {
       setAuthMessage('Sign in to MH ESPORTS');
+      joined = [];
+      renderJoined();
       if (login) login.style.display = 'block';
       if (logout) logout.style.display = 'none';
     }
@@ -100,8 +103,67 @@ function gameCards(target){document.getElementById(target).innerHTML=modes.map((
 function selectMode(mode){selected=mode;showView('play');renderFilters();renderMatches();document.getElementById('matchHeading').scrollIntoView({behavior:'smooth',block:'start'})}
 function renderFilters(){let all=['All','BR','Solo','Duo','Squad','CS 1v1','CS 2v2','CS 4v4','LW 1v1','LW 2v2','CS Headshot','LW Headshot','Sniper'];document.getElementById('filters').innerHTML=all.map(x=>`<button class="${selected===x?'active':''}" onclick="selected='${x}';renderFilters();renderMatches()">${x}</button>`).join('')}
 function renderMatches(){let list=tournaments.filter(t=>selected==='All'||t[0]===selected||t[2]===selected);document.getElementById('tournaments').innerHTML=list.map((t)=>`<div class="match"><span class="tag">● DEMO MATCH • ${t[0]}</span><h3>🏆 ${t[1]}</h3><div class="matchMeta"><span>👥 ${t[3]} Slots</span><span>Entry: Free</span><span>Prize: Demo</span></div><button class="join" onclick="joinMatch('${t[1].replace(/'/g,"\\'")}')">JOIN TOURNAMENT</button></div>`).join('')||'<div class="card">No tournaments in this category yet.</div>'}
-function joinMatch(name){if(joined.includes(name)){alert('You have already joined this demo match.');return}joined.push(name);document.getElementById('playedCount').textContent=joined.length;renderJoined();alert('Demo join successful! Real registration will be enabled after backend setup.')}
-function renderJoined(){document.getElementById('joined').innerHTML=joined.length?joined.map(x=>`<div class="match">✅ ${x}<div class="tag">DEMO REGISTRATION</div></div>`).join(''):'<div class="card">No matches joined yet. Choose a tournament in Play.</div>'}
+async function joinMatch(name){
+  const user = mhAuth ? mhAuth.currentUser : null;
+  if(!user){ alert('Tournament join करण्यासाठी आधी Google Login करा.'); return; }
+  if(!mhDb){ alert('Firebase उपलब्ध नाही. कृपया पेज Refresh करा.'); return; }
+  try {
+    const userRef = mhDb.collection('users').doc(user.uid);
+    const userSnap = await userRef.get();
+    if(!userSnap.exists){ alert('आधी Profile Save करा.'); return; }
+    const profile = userSnap.data() || {};
+    if(!profile.gameName || !profile.freeFireUid){ alert('आधी Profile मध्ये Game Name आणि Free Fire UID भरून Save Profile करा.'); return; }
+    const registrations = Array.isArray(profile.registrations) ? profile.registrations : [];
+    if(registrations.some(r => r && r.tournamentName === name)){
+      alert('तुम्ही या Tournament मध्ये आधीच Join केले आहे.');
+      joined = registrations;
+      renderJoined();
+      return;
+    }
+    const registration = {
+      tournamentName: name,
+      userUid: user.uid,
+      email: user.email || '',
+      gameName: profile.gameName,
+      freeFireUid: profile.freeFireUid,
+      registeredAt: new Date().toISOString(),
+      status: 'registered'
+    };
+    await userRef.set({ registrations: firebase.firestore.FieldValue.arrayUnion(registration) }, { merge: true });
+    joined = registrations.concat([registration]);
+    const count = document.getElementById('playedCount');
+    if(count) count.textContent = joined.length;
+    renderJoined();
+    alert('Tournament registration Firebase मध्ये Save झाले!');
+  } catch(error) {
+    console.error('Tournament registration failed:', error);
+    alert('Registration Save झाले नाही: ' + (error.code || error.message));
+  }
+}
+async function loadJoinedMatches(user){
+  if(!user || !mhDb){ joined=[]; renderJoined(); return; }
+  try {
+    const snap = await mhDb.collection('users').doc(user.uid).get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    joined = Array.isArray(data.registrations) ? data.registrations : [];
+    const count = document.getElementById('playedCount');
+    if(count) count.textContent = joined.length;
+    renderJoined();
+  } catch(error) {
+    console.error('Could not load registrations:', error);
+    const box = document.getElementById('joined');
+    if(box) box.innerHTML = '<div class="card">Registrations load झाले नाहीत. कृपया पुन्हा प्रयत्न करा.</div>';
+  }
+}
+function renderJoined(){
+  const box = document.getElementById('joined');
+  if(!box) return;
+  box.innerHTML = joined.length ? joined.map(r => {
+    const name = typeof r === 'string' ? r : (r.tournamentName || 'Tournament');
+    const date = typeof r === 'object' && r.registeredAt ? new Date(r.registeredAt).toLocaleString() : '';
+    return `<div class="match">✅ ${name}<div class="tag">FIREBASE REGISTRATION</div>${date ? `<div class="note">Registered: ${date}</div>` : ''}</div>`;
+  }).join('') : '<div class="card">No matches joined yet. Choose a tournament in Play.</div>';
+}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===id||(id==='myMatches'&&b.dataset.view==='play')));window.scrollTo(0,0)}
 document.querySelectorAll('nav [data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
 async function saveProfile(){
