@@ -14,6 +14,7 @@
 </main><nav><button data-view="earn"><strong>₹</strong>Earn</button><button data-view="play" class="active"><strong>🎮</strong>Play</button><button data-view="account"><strong>●</strong>Account</button></nav>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyDml9fV_DrpfFyfFNZwlZV-ftgSWUjmVs0",
@@ -25,6 +26,7 @@ const firebaseConfig = {
   measurementId: "G-036G14G1K1"
 };
 let mhAuth = null;
+let mhDb = null;
 function setAuthMessage(message) {
   const status = document.getElementById('authStatus');
   if (status) status.textContent = message;
@@ -32,6 +34,7 @@ function setAuthMessage(message) {
 try {
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   mhAuth = firebase.auth();
+  mhDb = firebase.firestore();
   mhAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(error => {
     setAuthMessage('Auth setup error: ' + (error.message || error.code));
   });
@@ -40,6 +43,7 @@ try {
     const logout = document.getElementById('googleLogoutBtn');
     if (user) {
       setAuthMessage('Login successful! Welcome, ' + (user.displayName || user.email || 'Google user'));
+      saveUserToFirestore(user);
       if (login) login.style.display = 'none';
       if (logout) logout.style.display = 'block';
     } else {
@@ -51,6 +55,23 @@ try {
 } catch (error) {
   setAuthMessage('Firebase could not start: ' + (error.message || error.code || error));
 }
+
+async function saveUserToFirestore(user) {
+  if (!mhDb || !user) return;
+  try {
+    const userRef = mhDb.collection('users').doc(user.uid);
+    await userRef.set({
+      email: user.email || '',
+      gameName: user.displayName || 'Player',
+      lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    setAuthMessage('Login successful! Profile synced to Firebase.');
+  } catch (error) {
+    console.error('Firestore profile save failed:', error);
+    setAuthMessage('Login successful, but profile sync failed: ' + (error.code || error.message));
+  }
+}
+
 async function googleLogin() {
   if (!mhAuth) { setAuthMessage('Firebase is not ready. Please refresh the page.'); return; }
   const button = document.getElementById('googleLoginBtn');
