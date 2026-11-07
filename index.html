@@ -25,41 +25,52 @@ const firebaseConfig = {
   measurementId: "G-036G14G1K1"
 };
 let mhAuth = null;
+function setAuthMessage(message) {
+  const status = document.getElementById('authStatus');
+  if (status) status.textContent = message;
+}
 try {
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   mhAuth = firebase.auth();
-  mhAuth.getRedirectResult().catch(error => {
-    const status = document.getElementById('authStatus');
-    if (status) status.textContent = 'Google login error: ' + (error.message || error.code);
+  mhAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(error => {
+    setAuthMessage('Auth setup error: ' + (error.message || error.code));
   });
   mhAuth.onAuthStateChanged(user => {
-    const status = document.getElementById('authStatus');
     const login = document.getElementById('googleLoginBtn');
     const logout = document.getElementById('googleLogoutBtn');
     if (user) {
-      if (status) status.textContent = 'Signed in as ' + (user.displayName || user.email || 'Google user');
+      setAuthMessage('Login successful! Welcome, ' + (user.displayName || user.email || 'Google user'));
       if (login) login.style.display = 'none';
       if (logout) logout.style.display = 'block';
     } else {
-      if (status) status.textContent = 'Sign in to MH ESPORTS';
+      setAuthMessage('Sign in to MH ESPORTS');
       if (login) login.style.display = 'block';
       if (logout) logout.style.display = 'none';
     }
   });
 } catch (error) {
-  const status = document.getElementById('authStatus');
-  if (status) status.textContent = 'Firebase could not start: ' + (error.message || error);
+  setAuthMessage('Firebase could not start: ' + (error.message || error.code || error));
 }
-function googleLogin() {
-  if (!mhAuth) { alert('Firebase is not ready. Please refresh the page.'); return; }
-  const provider = new firebase.auth.GoogleAuthProvider();
-  mhAuth.signInWithRedirect(provider).catch(error => {
-    const status = document.getElementById('authStatus');
-    if (status) status.textContent = 'Login failed: ' + (error.message || error.code);
-  });
+async function googleLogin() {
+  if (!mhAuth) { setAuthMessage('Firebase is not ready. Please refresh the page.'); return; }
+  const button = document.getElementById('googleLoginBtn');
+  if (button) { button.disabled = true; button.textContent = 'CONNECTING...'; }
+  try {
+    await mhAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await mhAuth.signInWithPopup(provider);
+    if (result && result.user) {
+      setAuthMessage('Login successful! Welcome, ' + (result.user.displayName || result.user.email || 'Google user'));
+    }
+  } catch (error) {
+    setAuthMessage('Google login failed: ' + (error.code || '') + ' ' + (error.message || 'Please try again.'));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = '🔐 CONTINUE WITH GOOGLE'; }
+  }
 }
 function googleLogout() {
-  if (mhAuth) mhAuth.signOut().catch(error => alert('Sign out failed: ' + error.message));
+  if (mhAuth) mhAuth.signOut().then(() => setAuthMessage('You have signed out.')).catch(error => setAuthMessage('Sign out failed: ' + error.message));
 }
 const modes=[['BR FULL MAP','🗺️','BR'],['CS 1V1','⚔️','CS 1v1'],['LW 1V1','🥷','LW 1v1'],['FF SQUAD','👥','BR Squad'],['CS 1V1 HEAD','🎯','CS Headshot'],['LW HEAD','🔥','LW Headshot'],['BR SURVIVAL','🏆','BR Solo'],['CS 2V2','⚡','CS 2v2'],['LW 2V2','💥','LW 2v2'],['CS 4V4','🛡️','CS 4v4'],['BR DUO','🎮','BR Duo'],['SNIPER MATCH','🎯','Sniper']];
 const tournaments=[['BR','Full Map Solo','Solo','48'],['BR','Full Map Duo','Duo','24'],['BR','Full Map Squad','Squad','12'],['CS 1v1','Clash Squad 1v1','1v1','32'],['CS 2v2','Clash Squad 2v2','2v2','16'],['CS 4v4','Clash Squad 4v4','4v4','8'],['LW 1v1','Lone Wolf 1v1','1v1','32'],['LW 2v2','Lone Wolf 2v2','2v2','16'],['CS Headshot','CS Headshot Challenge','1v1','24'],['LW Headshot','LW Headshot Challenge','1v1','24'],['Sniper','Sniper Challenge','Solo','24']];let selected='All',joined=[];
