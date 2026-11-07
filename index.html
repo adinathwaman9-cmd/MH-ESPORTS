@@ -60,7 +60,7 @@ try {
     }
   });
 } catch (error) {
-  setAuthMessage('Firebase could not start: ' + (error.message || error.code || error));
+  setAuthMessage('App could not start: ' + (error.message || error.code || error));
 }
 
 async function saveUserToFirestore(user) {
@@ -71,15 +71,15 @@ async function saveUserToFirestore(user) {
       email: user.email || '',
       lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    setAuthMessage('Login successful! Profile synced to Firebase.');
+    setAuthMessage('Login successful.');
   } catch (error) {
     console.error('Firestore profile save failed:', error);
-    setAuthMessage('Login successful, but profile sync failed: ' + (error.code || error.message));
+    setAuthMessage('Login successful, but profile could not be updated: ' + (error.code || error.message));
   }
 }
 
 async function googleLogin() {
-  if (!mhAuth) { setAuthMessage('Firebase is not ready. Please refresh the page.'); return; }
+  if (!mhAuth) { setAuthMessage('Please refresh the page and try again.'); return; }
   const button = document.getElementById('googleLoginBtn');
   if (button) { button.disabled = true; button.textContent = 'CONNECTING...'; }
   try {
@@ -109,7 +109,7 @@ function renderMatches(){let list=tournaments.filter(t=>selected==='All'||t[0]==
 async function joinMatch(name){
   const user = mhAuth ? mhAuth.currentUser : null;
   if(!user){ alert('Please sign in with Google before joining a tournament.'); return; }
-  if(!mhDb){ alert('Firebase is unavailable. Please refresh the page.'); return; }
+  if(!mhDb){ alert('Service is temporarily unavailable. Please refresh the page.'); return; }
   try {
     const userRef = mhDb.collection('users').doc(user.uid);
     const userSnap = await userRef.get();
@@ -137,10 +137,10 @@ async function joinMatch(name){
     const count = document.getElementById('playedCount');
     if(count) count.textContent = joined.length;
     renderJoined();
-    alert('Tournament registration saved to Firebase!');
+    alert('Tournament registration successful!');
   } catch(error) {
     console.error('Tournament registration failed:', error);
-    alert('Failed to save registration: ' + (error.code || error.message));
+    alert('Registration failed. Please try again.');
   }
 }
 async function loadJoinedMatches(user){
@@ -164,7 +164,7 @@ function renderJoined(){
   box.innerHTML = joined.length ? joined.map(r => {
     const name = typeof r === 'string' ? r : (r.tournamentName || 'Tournament');
     const date = typeof r === 'object' && r.registeredAt ? new Date(r.registeredAt).toLocaleString() : '';
-    return `<div class="match">✅ ${name}<div class="tag">FIREBASE REGISTRATION</div>${date ? `<div class="note">Registered: ${date}</div>` : ''}</div>`;
+    return `<div class="match">✅ ${name}<div class="tag">REGISTRATION</div>${date ? `<div class="note">Registered: ${date}</div>` : ''}</div>`;
   }).join('') : '<div class="card">No matches joined yet. Choose a tournament in Play.</div>';
 }
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===id||(id==='myMatches'&&b.dataset.view==='play')));window.scrollTo(0,0)}
@@ -190,12 +190,12 @@ async function saveProfile(){
       freeFireUid: u,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    if(message){ message.textContent='✓ In-Game Name saved successfully to Firebase!'; message.style.color='#16a34a'; }
+    if(message){ message.textContent='✓ Saved successfully!'; message.style.color='#16a34a'; }
     const accountName=document.getElementById('accountName');
     if(accountName) accountName.textContent=n;
   } catch(error) {
     console.error('Profile save failed:',error);
-    if(message){ message.textContent='Profile could not be saved to Firebase: '+(error.code || error.message); message.style.color='#dc2626'; }
+    if(message){ message.textContent='Could not save profile: '+(error.code || error.message); message.style.color='#dc2626'; }
   }
 }
 try {
@@ -223,7 +223,7 @@ async function loadAdminRegistrations(){
       playerRows.push({uid:doc.id,email:data.email||'',gameName:data.gameName||data.inGameName||data.playerName||'',freeFireUid:data.freeFireUid||''});
       // Current app format: registrations array stored inside users/{uid}.
       (Array.isArray(data.registrations)?data.registrations:[]).forEach((r,index)=>{
-        if(r && typeof r==='object') rows.push({kind:'userArray',userDocId:doc.id,index,record:r,email:r.email||data.email||'',gameName:r.gameName||r.inGameName||r.playerName||data.gameName||data.inGameName||data.playerName||'',freeFireUid:r.freeFireUid||data.freeFireUid||'',tournamentName:r.tournamentName||'Tournament',status:r.status||'registered',registeredAt:r.registeredAt||''});
+        if(r && typeof r==='object') rows.push({kind:'userArray',userDocId:doc.id,index,record:r,email:r.email||data.email||'',gameName:data.gameName||data.inGameName||data.playerName||r.gameName||r.inGameName||r.playerName||'',freeFireUid:r.freeFireUid||data.freeFireUid||'',tournamentName:r.tournamentName||'Tournament',status:r.status||'registered',registeredAt:r.registeredAt||''});
       });
     });
     // Also support a top-level registrations collection if it exists and rules allow admin reads.
@@ -240,7 +240,7 @@ async function loadAdminRegistrations(){
       return `<div class="match"><div class="tag">${mhEscape(action.toUpperCase())}</div><h3>${mhEscape(r.tournamentName)}</h3><div class="matchMeta"><span>Player: ${mhEscape(r.gameName)}</span><span>FF UID: ${mhEscape(r.freeFireUid || 'Not provided')}</span></div><p class="note">Gmail: ${mhEscape(r.email)}<br>Registered: ${mhEscape(date)}<br>Record: ${r.kind==='collection'?'registrations collection':'users profile'}</p><div style="display:flex;gap:8px"><button class="join" style="margin-top:0" data-admin-action="approved" data-admin-index="${i}">✓ APPROVE</button><button class="join" style="margin-top:0;background:#b42336" data-admin-action="rejected" data-admin-index="${i}">✕ REJECT</button></div></div>`;
     }).join('');
     box.querySelectorAll('[data-admin-action]').forEach(btn=>btn.addEventListener('click',()=>updateAdminRegistration(rows[Number(btn.dataset.adminIndex)],btn.dataset.adminAction)));
-  }catch(error){console.error('Admin registrations load failed:',error);status.textContent='Load failed: '+(error.code||error.message)+' — Check your Firestore Rules.';}
+  }catch(error){console.error('Admin registrations load failed:',error);status.textContent='Could not load player details. Please try again.';}
 }
 async function updateAdminRegistration(row,newStatus){
   if(!mhIsAdmin()){alert('Admin access denied.');return;}
